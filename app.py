@@ -27,7 +27,7 @@ if not os.path.exists(OCC_FILE):
 # ========== 页面配置 ==========
 st.set_page_config(page_title="AI职业替代风险预警系统", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
-# 自定义CSS（突出表格和预警等级）
+# 自定义CSS（删除了可能引起冲突的 .dataframe 样式）
 st.markdown("""
 <style>
     .main-title {
@@ -51,9 +51,6 @@ st.markdown("""
     .warning-orange { color: #f57c00; font-weight: bold; background: #fff3e0; padding: 0.2rem 0.8rem; border-radius: 20px; display: inline-block; }
     .warning-yellow { color: #f1c40f; font-weight: bold; background: #fffde7; padding: 0.2rem 0.8rem; border-radius: 20px; display: inline-block; }
     .warning-blue { color: #1976d2; font-weight: bold; background: #e3f2fd; padding: 0.2rem 0.8rem; border-radius: 20px; display: inline-block; }
-    /* 数据表格突出就业人数列 */
-    .dataframe td:nth-child(3) { font-weight: bold; background-color: #f0f7ff; }
-    .dataframe th { background-color: #e8f0fe; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,7 +163,7 @@ elif option == "📊 行业风险地图":
     with col4:
         st.markdown(f'<span class="warning-blue">🔵 蓝色安全</span> ≤ {q25:.2f}', unsafe_allow_html=True)
 
-# ========== 功能3：地区风险面板（突出就业人数和预警等级） ==========
+# ========== 功能3：地区风险面板（改用 st.dataframe 避免 HTML 冲突） ==========
 elif option == "🗺️ 地区风险面板":
     st.subheader("🗺️ 省份AI风险与就业结构分析")
     provinces = sorted(panel_df['province'].unique())
@@ -214,18 +211,16 @@ elif option == "🗺️ 地区风险面板":
                 f'<div class="metric-card"><h4>⚖️ 与全国对比</h4><h2 style="color:{color_trend}">{trend} {abs(diff):.3f}</h2><p>{selected_prov}的风险水平{trend}全国平均</p></div>',
                 unsafe_allow_html=True)
 
-        # 表格：突出就业人数和预警等级
+        # 构造表格数据（使用 st.dataframe，不再使用 HTML 标签）
         prov_data['预警等级'] = prov_data['exposure'].apply(warning_level)
-        prov_data['预警标签'] = prov_data['预警等级'].apply(lambda x: f'<span class="{warning_style(x)}">{x}</span>')
-        table_data = prov_data[['industry', 'exposure', 'employment', 'emp_share', '预警标签']].copy()
+        table_data = prov_data[['industry', 'exposure', 'employment', 'emp_share', '预警等级']].copy()
         table_data['emp_share'] = table_data['emp_share'].apply(lambda x: f"{x:.1%}")
         table_data.columns = ['行业', '暴露度(全国统一)', '就业人数(万人)', '就业占比', '预警等级']
-        # 按就业人数降序排列，突出就业规模的行业
         table_data = table_data.sort_values('就业人数(万人)', ascending=False)
         st.markdown("### 📋 各行业就业结构及AI暴露度（按就业人数排序）")
-        st.write(table_data.to_html(escape=False, index=False), unsafe_allow_html=True)
+        st.dataframe(table_data, use_container_width=True)
 
-        # 柱状图：使用“风险贡献 = 暴露度 × 就业占比”，不同省份不同
+        # 柱状图：使用“风险贡献 = 暴露度 × 就业占比”
         chart_data = prov_data.sort_values('weighted_exposure', ascending=True)
         fig = go.Figure(go.Bar(
             x=chart_data['weighted_exposure'],
